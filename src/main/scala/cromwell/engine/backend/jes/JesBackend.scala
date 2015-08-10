@@ -12,11 +12,11 @@ import cromwell.binding.types.WdlFileType
 import cromwell.binding.values._
 import cromwell.engine.{AbortFunction, AbortFunctionRegistration}
 import cromwell.engine.backend.TaskAbortedException
-import cromwell.engine.WorkflowId
-import cromwell.engine.backend.{StdoutStderr, Backend}
 import cromwell.engine.backend.Backend.RestartableWorkflow
 import cromwell.engine.backend.jes.JesBackend._
+import cromwell.engine.backend.{Backend, StdoutStderr}
 import cromwell.engine.db.DataAccess
+import cromwell.engine.{TaskExecutionContext, WorkflowId}
 import cromwell.parser.BackendType
 import cromwell.util.TryUtil
 import cromwell.util.google.GoogleCloudStoragePath
@@ -144,6 +144,8 @@ class JesBackend extends Backend with LazyLogging {
       stderr = WdlFile(s"$base/$LocalStderrValue")
     )
   }
+
+  override def setupCallEnvironment(call: Call, workflowDescriptor: WorkflowDescriptor): TaskExecutionContext = ???
 
   override def executeCommand(instantiatedCommandLine: String,
                               workflowDescriptor: WorkflowDescriptor,

@@ -1,7 +1,6 @@
 package cromwell.binding
 
 import cromwell.binding.values._
-import cromwell.engine.EngineFunctions
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, FlatSpec}
 import scala.language.postfixOps
@@ -118,7 +117,7 @@ class WdlExpressionToFileSpec extends FlatSpec with Matchers with MockitoSugar {
   }
 }
 
-class MockEngineFunctions extends EngineFunctions  {
+class MockEngineFunctions extends WdlStandardLibraryFunctions  {
   // It's important to ensure that these are never called during pre-evaluation:
   override protected def read_int(params: Seq[Try[WdlValue]]): Try[WdlInteger] = {
     assert(false, "The active 'read_int' function should not be used during pre-evaluation")

@@ -2,11 +2,11 @@ package cromwell.binding
 
 import cromwell.binding.WdlExpression.ScopedLookupFunction
 import cromwell.binding.formatter.{NullSyntaxHighlighter, SyntaxHighlighter}
-import cromwell.binding.types.{WdlType, WdlArrayType, WdlExpressionType}
+import cromwell.binding.types._
 import cromwell.binding.values._
-import cromwell.engine.EngineFunctions
 import cromwell.parser.WdlParser
 import cromwell.parser.WdlParser.{Ast, AstList, AstNode, Terminal}
+import cromwell.binding.AstTools.EnhancedAstNode
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -33,11 +33,11 @@ object WdlExpression {
 
   def binaryOperator(a: Ast): Boolean = binaryOperators.contains(a.getName)
   
-  def unaryOperator(a: Ast): Boolean = unaryOperators.contains((a.getName))
+  def unaryOperator(a: Ast): Boolean = unaryOperators.contains(a.getName)
   
   def functionCallWithOneFileParameter(a: Ast): Boolean = (
     functionCall(a)
-    && a.getAttribute("params").asInstanceOf[AstList].asScala.toVector.size == 1
+    && a.getAttribute("params").astListAsVector.size == 1
     && preEvaluableFunctions_SingleParameter.contains(a.getAttribute("name").asInstanceOf[Terminal].getSourceString))
   
   /**
@@ -48,7 +48,7 @@ object WdlExpression {
       // This is the only case which actually pre-evaluates anything. The other cases are just buck-passers:
       case a: Ast if functionCallWithOneFileParameter(a) => {
         // Test the pre-evaluation would be valid by using dummy functions:
-        val innerExpression = a.getAttribute("params").asInstanceOf[AstList].asScala.toVector.head
+        val innerExpression = a.getAttribute("params").astListAsVector.head
         val dummyEvaluation = evaluate(innerExpression, lookup, new DummyPreEvaluationFunctions())
         // If dummyEvaluation succeeded, run the real evaluation instead and match against it:
         dummyEvaluation.flatMap( _ => evaluate(innerExpression, lookup, functions)) match {
@@ -87,7 +87,7 @@ object WdlExpression {
 
   def evaluate(ast: AstNode, lookup: ScopedLookupFunction, functions: WdlFunctions, interpolateStrings: Boolean = false): Try[WdlValue] = {
     ast match {
-      case t: Terminal if t.getTerminalStr == "identifier" => Success(lookup(t.getSourceString))
+      case t: Terminal if t.getTerminalStr == "identifier" => Try(lookup(t.getSourceString))
       case t: Terminal if t.getTerminalStr == "integer" => Success(WdlInteger(t.getSourceString.toInt))
       case t: Terminal if t.getTerminalStr == "float" => Success(WdlFloat(t.getSourceString.toDouble))
       case t: Terminal if t.getTerminalStr == "boolean" => Success(WdlBoolean(t.getSourceString == "true"))
@@ -122,7 +122,7 @@ object WdlExpression {
           case _ => Failure(new WdlExpressionException(s"Invalid operator: ${a.getName}"))
         }
       case a: Ast if a.getName == "ArrayLiteral" =>
-        val evaluatedElements = a.getAttribute("values").asInstanceOf[AstList].asScala.toVector map {x =>
+        val evaluatedElements = a.getAttribute("values").astListAsVector map {x =>
           evaluate(x, lookup, functions, interpolateStrings)
         }
         evaluatedElements.partition {_.isSuccess} match {
@@ -130,14 +130,23 @@ object WdlExpression {
             val message = failures.collect {case f: Failure[_] => f.exception.getMessage}.mkString("\n")
             Failure(new WdlExpressionException(s"Could not evaluate expression:\n$message"))
           case (successes, _) =>
-            successes.map{_.get.wdlType}.toSet match {
-              case s:Set[WdlType] if s.isEmpty =>
-                Failure(new WdlExpressionException(s"Can't have empty array declarations (can't infer type)"))
-              case s:Set[WdlType] if s.size == 1 =>
-                Success(WdlArray(WdlArrayType(s.head), successes.map{_.get}.toSeq))
-              case _ =>
-                Failure(new WdlExpressionException("Arrays must have homogeneous types"))
-            }
+            for (subtype <- WdlType.areTypesHomogeneous(successes.map(_.get)))
+              yield WdlArray(WdlArrayType(subtype), successes.map(_.get))
+        }
+      case a: Ast if a.getName == "MapLiteral" =>
+        val evaluatedMap = a.getAttribute("map").astListAsVector map {kv =>
+          val key = evaluate(kv.asInstanceOf[Ast].getAttribute("key"), lookup, functions, interpolateStrings)
+          val value = evaluate(kv.asInstanceOf[Ast].getAttribute("value"), lookup, functions, interpolateStrings)
+          key -> value
+        }
+        val flattenedTries = evaluatedMap flatMap { case (k,v) => Seq(k,v) }
+
+        flattenedTries partition {_.isSuccess} match {
+          case (_, failures) if failures.nonEmpty =>
+            val message = failures.collect { case f: Failure[_] => f.exception.getMessage }.mkString("\n")
+            Failure(new WdlExpressionException(s"Could not evaluate expression:\n$message"))
+          case (successes, _) =>
+            WdlMapType(WdlAnyType, WdlAnyType).coerceRawValue(evaluatedMap.map({ case (k, v) => k.get -> v.get }).toMap)
         }
       case a: Ast if a.getName == "MemberAccess" =>
         a.getAttribute("rhs") match {
@@ -155,7 +164,7 @@ object WdlExpression {
         }
       case a: Ast if functionCall(a) =>
         val name = a.getAttribute("name").asInstanceOf[Terminal].getSourceString
-        val params = a.getAttribute("params").asInstanceOf[AstList].asScala.toVector map {
+        val params = a.getAttribute("params").astListAsVector map {
           evaluate(_, lookup, functions, interpolateStrings)
         }
         functions.getFunction(name)(params)
@@ -196,7 +205,7 @@ object WdlExpression {
       }
       case a:Ast if a.getName == "FunctionCall" => {
         val name = a.getAttribute("name").asInstanceOf[Terminal].getSourceString
-        val params = a.getAttribute("params").asInstanceOf[AstList].asScala.toVector.map {a => toString(a, highlighter)}
+        val params = a.getAttribute("params").astListAsVector map {a => toString(a, highlighter)}
         s"${highlighter.function(name)}(${params.mkString(", ")})"
       }
       case a:Ast if a.getName == "MemberAccess" => {
@@ -226,14 +235,9 @@ trait WdlFunctions {
   def getFunction(name: String): WdlFunction
 }
 
+class NoFunctions extends WdlStandardLibraryFunctions
 
-class DummyPreEvaluationFunctions extends EngineFunctions {
-  // These cannot be evaluated before running the operation, so quickly fail the pre-evaluation test.
-  override protected def read_int(params: Seq[Try[WdlValue]]): Try[WdlInteger] = Failure(new UnsupportedOperationException("Unable to pre-evaluate read_int"))
-  override protected def read_string(params: Seq[Try[WdlValue]]): Try[WdlString] = Failure(new UnsupportedOperationException("Unable to pre-evaluate read_string"))
-  override protected def read_lines(params: Seq[Try[WdlValue]]): Try[WdlArray] = Failure(new UnsupportedOperationException("Unable to pre-evaluate read_lines"))
-
-  // These can be evaluated before running the operation so provide dummy values during the pre-evaluation test.
+class DummyPreEvaluationFunctions extends WdlStandardLibraryFunctions {
   override protected def stdout(params: Seq[Try[WdlValue]]): Try[WdlFile] = Success(WdlFile("/test/value"))
   override protected def stderr(params: Seq[Try[WdlValue]]): Try[WdlFile] = Success(WdlFile("/test/value"))
 }

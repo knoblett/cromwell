@@ -5,15 +5,10 @@ import java.nio.file.{Files, Paths}
 import java.util.UUID
 
 import cromwell.binding.WdlExpression.ScopedLookupFunction
-import cromwell.binding.command.{StringCommandPart, Command}
-import cromwell.binding.values.WdlValue
-import cromwell.binding.{Task, Call, WorkflowDescriptor}
-import cromwell.engine.{WorkflowId, AbortFunctionRegistration, AbortFunction}
-import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.mock.MockitoSugar
 import cromwell.binding.values.WdlFile
 import cromwell.binding.{Call, Task, WorkflowDescriptor}
 import cromwell.engine.backend.Backend.StdoutStderrException
+import cromwell.engine.{AbortFunctionRegistration, WorkflowId}
 import org.mockito.Mockito._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
