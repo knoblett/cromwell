@@ -12,11 +12,11 @@ object Dependencies {
   - http://doc.akka.io/docs/akka/2.4/scala/http/common/json-support.html#akka-http-spray-json
    */
   lazy val sprayJsonV = "1.3.2"
-  lazy val akkaV = "2.4.9"
+  lazy val akkaV = "2.4.10"
   lazy val slickV = "3.1.1"
   lazy val googleClientApiV = "1.20.0"
   lazy val betterFilesV = "2.16.0"
-  lazy val scalazCoreV = "7.2.5"
+  lazy val scalazCoreV = "7.2.6"
 
   // Internal collections of dependencies
 
@@ -24,14 +24,15 @@ object Dependencies {
     "org.broadinstitute" %% "lenthall" % lenthallV,
     "org.scalaz" %% "scalaz-core" % scalazCoreV,
     "org.scalatest" %% "scalatest" % "3.0.0" % Test,
-    "org.specs2" %% "specs2" % "3.7" % Test
+    "org.pegdown" % "pegdown" % "1.6.0" % Test,
+    "org.specs2" %% "specs2-mock" % "3.8.5" % Test
   )
 
   private val slf4jBindingDependencies = List(
     // http://logback.qos.ch/dependencies.html
     "ch.qos.logback" % "logback-classic" % "1.1.7",
     "ch.qos.logback" % "logback-access" % "1.1.7",
-    "org.codehaus.janino" % "janino" % "3.0.1"
+    "org.codehaus.janino" % "janino" % "3.0.6"
   )
 
   private val slickDependencies = List(
@@ -40,7 +41,7 @@ object Dependencies {
   )
 
   private val liquibaseDependencies = List(
-    "org.liquibase" % "liquibase-core" % "3.5.1",
+    "org.liquibase" % "liquibase-core" % "3.5.2",
     // This is to stop liquibase from being so noisy by default
     // See: http://stackoverflow.com/questions/20880783/how-to-get-liquibase-to-log-using-slf4j
     "com.mattbertolini" % "liquibase-slf4j" % "2.0.0"
@@ -56,7 +57,7 @@ object Dependencies {
   private val googleApiClientDependencies = List(
     // Used by swagger, but only in tests.  This overrides an older 2.1.3 version of jackson-core brought in by
     // these Google dependencies, but which isn't properly evicted by IntelliJ's sbt integration.
-    "com.fasterxml.jackson.core" % "jackson-core" % "2.8.2",
+    "com.fasterxml.jackson.core" % "jackson-core" % "2.8.3",
     // The exclusions prevent guava 13 from colliding at assembly time with guava 18 brought in elsewhere.
     "com.google.api-client" % "google-api-client-java6" % googleClientApiV exclude("com.google.guava", "guava-jdk5"),
     "com.google.api-client" % "google-api-client-jackson2" % googleClientApiV exclude("com.google.guava", "guava-jdk5")
@@ -94,7 +95,7 @@ object Dependencies {
   ) ++ baseDependencies ++ liquibaseDependencies ++ dbmsDependencies
 
   val coreDependencies = List(
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
     "org.broadinstitute" %% "wdl4s" % wdl4sV,
     "org.apache.commons" % "commons-lang3" % "3.4",
     "io.spray" %% "spray-json" % sprayJsonV,
@@ -116,7 +117,6 @@ object Dependencies {
   ) ++ sprayServerDependencies
 
   val engineDependencies = List(
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0",
     "org.webjars" % "swagger-ui" % "2.1.1",
     "commons-codec" % "commons-codec" % "1.10",
     "commons-io" % "commons-io" % "2.5",
