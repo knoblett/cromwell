@@ -10,6 +10,7 @@ import cromwell.core.Dispatcher.EngineDispatcher
 import cromwell.core.WorkflowOptions.FinalWorkflowLogDir
 import cromwell.core._
 import cromwell.core.logging.{WorkflowLogger, WorkflowLogging}
+import cromwell.core.path.PathFactory
 import cromwell.engine._
 import cromwell.engine.workflow.WorkflowActor._
 import cromwell.engine.workflow.lifecycle.MaterializeWorkflowDescriptorActor.{MaterializeWorkflowDescriptorCommand, MaterializeWorkflowDescriptorFailureResponse, MaterializeWorkflowDescriptorSuccessResponse}
@@ -158,7 +159,7 @@ class WorkflowActor(val workflowId: WorkflowId,
                     jobStoreActor: ActorRef,
                     callCacheReadActor: ActorRef,
                     jobTokenDispenserActor: ActorRef)
-  extends LoggingFSM[WorkflowActorState, WorkflowActorData] with WorkflowLogging with PathFactory {
+  extends LoggingFSM[WorkflowActorState, WorkflowActorData] with WorkflowLogging {
 
   implicit val ec = context.dispatcher
 
@@ -299,7 +300,7 @@ class WorkflowActor(val workflowId: WorkflowId,
         stateData.workflowDescriptor foreach { wd =>
           wd.getWorkflowOption(FinalWorkflowLogDir) match {
             case Some(destinationDir) =>
-              workflowLogCopyRouter ! CopyWorkflowLogsActor.Copy(wd.id, buildPath(destinationDir, wd.engineFilesystems))
+              workflowLogCopyRouter ! CopyWorkflowLogsActor.Copy(wd.id, PathFactory.buildPath(destinationDir, wd.pathBuilders))
             case None if WorkflowLogger.isTemporary => workflowLogger.deleteLogFile()
             case _ =>
           }

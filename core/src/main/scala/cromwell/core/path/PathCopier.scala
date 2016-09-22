@@ -1,4 +1,4 @@
-package cromwell.core
+package cromwell.core.path
 
 import java.nio.file.Path
 

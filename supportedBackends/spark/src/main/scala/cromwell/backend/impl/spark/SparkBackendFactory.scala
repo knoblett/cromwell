@@ -27,6 +27,6 @@ case class SparkBackendFactory(name: String, configurationDescriptor: BackendCon
       jobPaths.stderr.toAbsolutePath.toString
     )
 
-    new SharedFileSystemExpressionFunctions(SparkJobExecutionActor.DefaultFileSystems, callContext)
+    new SharedFileSystemExpressionFunctions(SparkJobExecutionActor.DefaultPathBuilders, callContext)
   }
 }

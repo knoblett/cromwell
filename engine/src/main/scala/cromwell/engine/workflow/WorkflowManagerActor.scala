@@ -1,6 +1,5 @@
 package cromwell.engine.workflow
 
-
 import akka.actor.FSM.{CurrentState, SubscribeTransitionCallBack, Transition}
 import akka.actor._
 import akka.event.Logging
@@ -15,6 +14,7 @@ import cromwell.jobstore.JobStoreActor.{JobStoreWriteFailure, JobStoreWriteSucce
 import cromwell.services.metadata.MetadataService._
 import cromwell.webservice.EngineStatsActor
 import lenthall.config.ScalaConfig.EnhancedScalaConfig
+import org.apache.commons.lang3.exception.ExceptionUtils
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
@@ -175,7 +175,7 @@ class WorkflowManagerActor(config: Config,
      Responses from services
      */
     case Event(WorkflowFailedResponse(workflowId, inState, reasons), data) =>
-      log.error(s"$tag Workflow $workflowId failed (during $inState): ${reasons.mkString("\n")}")
+      log.error(s"$tag Workflow $workflowId failed (during $inState): ${expandFailureReasons(reasons)}")
       stay()
     /*
      Watched transitions
@@ -273,5 +273,11 @@ class WorkflowManagerActor(config: Config,
 
   private def scheduleNextNewWorkflowPoll() = {
     context.system.scheduler.scheduleOnce(newWorkflowPollRate, self, RetrieveNewWorkflows)(context.dispatcher)
+  }
+
+  private def expandFailureReasons(reasons: Seq[Throwable]) = {
+    reasons map { reason =>
+      reason.getMessage + "\n" + ExceptionUtils.getStackTrace(reason)
+    } mkString "\n"
   }
 }
