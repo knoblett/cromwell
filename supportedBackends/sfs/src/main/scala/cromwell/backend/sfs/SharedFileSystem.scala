@@ -47,7 +47,7 @@ object SharedFileSystem {
 
   private def localizePathViaHardLink(originalPath: Path, executionPath: Path): Try[Unit] = {
     File(executionPath).parent.createDirectories()
-    Try(Files.createLink(executionPath, originalPath))
+    Try(File(executionPath.toRealPath()).linkTo(originalPath, symbolic = false))
   }
 
   /**
@@ -63,7 +63,7 @@ object SharedFileSystem {
       if (File(originalPath).isDirectory) Failure(new UnsupportedOperationException("Cannot localize directory with symbolic links"))
       else {
         File(executionPath).parent.createDirectories()
-        Try(Files.createSymbolicLink(executionPath, originalPath.toAbsolutePath))
+        Try(File(executionPath.toRealPath()).linkTo(originalPath, symbolic = true))
       }
   }
 

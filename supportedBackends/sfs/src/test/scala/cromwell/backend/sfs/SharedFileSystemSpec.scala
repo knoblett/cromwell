@@ -47,6 +47,7 @@ class SharedFileSystemSpec extends FlatSpec with Matchers with Mockito with Tabl
 
     orig.delete(swallowIOExceptions = true)
     dest.delete(swallowIOExceptions = true)
+    callDir.delete(swallowIOExceptions = true)
   }
 
   it should "not localize a file already in the call root" in {
@@ -71,6 +72,37 @@ class SharedFileSystemSpec extends FlatSpec with Matchers with Mockito with Tabl
 
   it should "localize a file via symbolic link" in {
     localizationTest(softLinkLocalization, docker = false, symlink = true)
+  }
+
+  it should "localize" in {
+    val fileInCallDir = false
+    val config = defaultLocalization
+    val docker = true
+    val linkCount = 1
+    val symbolic = true
+    val symLink = false
+
+    val tmpDir = File.newTemporaryDirectory("SharedFileSystem.")
+    val callDir = tmpDir./("call").createDirectory()
+    val inputDir = tmpDir./("inputs").createDirectory()
+    val orig = if (fileInCallDir) callDir.createChild("inputFile") else inputDir.createChild("inputFile")
+    val link = orig.sibling("link")
+    link.linkTo(orig, symbolic)
+    val dest = if (fileInCallDir) link else callDir./(link.pathAsString.drop(1))
+
+
+    val inputs = Map("input" -> WdlFile(link.pathAsString))
+    val sharedFileSystem = new SharedFileSystem { override val sharedFileSystemConfig = config }
+    val result = sharedFileSystem.localizeInputs(callDir.path, docker = docker, localFS, inputs)
+
+    result.isSuccess shouldBe true
+    result.get should contain theSameElementsAs Map("input" -> WdlFile(dest.pathAsString))
+
+    dest.exists shouldBe true
+    countLinks(dest) should be(linkCount)
+    isSymLink(dest) should be(symLink)
+
+    tmpDir.delete(swallowIOExceptions = true)
   }
 
   private[this] def countLinks(file: File): Int = Files.getAttribute(file.path, "unix:nlink").asInstanceOf[Int]
