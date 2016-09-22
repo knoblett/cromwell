@@ -53,7 +53,7 @@ class EngineJobExecutionActor(replyTo: ActorRef,
 
   private val effectiveCallCachingKey = "Effective call caching mode"
 
-  log.debug(s"$tag: $effectiveCallCachingKey: $effectiveCallCachingMode")
+  log.info(s"$tag: $effectiveCallCachingKey: $effectiveCallCachingMode")
   writeCallCachingModeToMetadata()
 
   startWith(Pending, NoData)
