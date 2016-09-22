@@ -35,7 +35,7 @@ case class EngineJobHashingActor(receiver: ActorRef,
     case Event(newCacheResults: CacheResultMatchesForHashes, _) =>
       val newData = stateData.intersectCacheResults(newCacheResults)
       if (newData.possibleCacheResults.isEmpty) {
-        log.info(s"No more cache hits possible after receiving ${newCacheResults.hashResults.mkString(", ")}")
+        log.info(s"No more cache hits possible after receiving ${newCacheResults.hashResults.mkString(", "  )}")
       }
       checkWhetherHitOrMissIsKnownThenTransition(newData)
   }
