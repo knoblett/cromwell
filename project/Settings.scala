@@ -57,7 +57,7 @@ object Settings {
         from("openjdk:8")
         expose(8000)
         add(artifact, artifactTargetPath)
-        entryPoint("java", "-jar", artifactTargetPath)
+        entryPoint("java", "-jar", artifactTargetPath, "server")
       }
     },
     buildOptions in docker := BuildOptions(
