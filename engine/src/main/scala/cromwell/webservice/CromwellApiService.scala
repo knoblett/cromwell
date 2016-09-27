@@ -110,8 +110,17 @@ trait CromwellApiService extends HttpService with PerRequestCreator {
   def submitRoute =
     path("workflows" / Segment) { version =>
       post {
-        formFields("wdlSource", "workflowInputs".?, "workflowOptions".?) { (wdlSource, workflowInputs, workflowOptions) =>
+        formFields("wdlSource", "workflowInputs".?, "workflowInputs_2".?, "workflowInputs_3".?,
+          "workflowInputs_4".?, "workflowInputs_5".? "workflowOptions".?) {
+          (wdlSource, workflowInputs, workflowInputs_2, workflowInputs_3, workflowInputs_4, workflowInputs_5, workflowOptions) =>
           requestContext =>
+            val workflowInputFiles = List(workflowInputs.getOrElse("{}"), workflowInputs_2.getOrElse("{}"), workflowInputs_3.getOrElse("{}"),
+              workflowInputs_4.getOrElse("{}"), workflowInputs_5.getOrElse("{}"))
+            //NOTE: Need to handle collisions of keys between the various input files
+            import spray.json._
+            val combinedInputs = workflowInputFiles.foreach.parseJson match {
+              case inputs => ++ inputs.getOrElse("{}")
+            }
             val workflowSourceFiles = WorkflowSourceFiles(wdlSource, workflowInputs.getOrElse("{}"), workflowOptions.getOrElse("{}"))
             perRequest(requestContext, CromwellApiHandler.props(workflowStoreActor), CromwellApiHandler.ApiHandlerWorkflowSubmit(workflowSourceFiles))
         }
