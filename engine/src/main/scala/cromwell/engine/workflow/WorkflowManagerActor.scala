@@ -8,6 +8,7 @@ import cats.data.NonEmptyList
 import com.typesafe.config.{Config, ConfigFactory}
 import cromwell.core.Dispatcher.EngineDispatcher
 import cromwell.core.{WorkflowAborted, WorkflowId}
+import cromwell.engine.backend.BackendSingletonCollection
 import cromwell.engine.workflow.WorkflowActor._
 import cromwell.engine.workflow.WorkflowManagerActor._
 import cromwell.engine.workflow.workflowstore.{WorkflowStoreActor, WorkflowStoreState}
@@ -43,9 +44,10 @@ object WorkflowManagerActor {
             workflowLogCopyRouter: ActorRef,
             jobStoreActor: ActorRef,
             callCacheReadActor: ActorRef,
-            jobTokenDispenserActor: ActorRef): Props = {
+            jobTokenDispenserActor: ActorRef,
+            backendSingletonCollection: BackendSingletonCollection): Props = {
     Props(new WorkflowManagerActor(
-      workflowStore, serviceRegistryActor, workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor)
+      workflowStore, serviceRegistryActor, workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor, backendSingletonCollection)
     ).withDispatcher(EngineDispatcher)
   }
 
@@ -83,7 +85,8 @@ class WorkflowManagerActor(config: Config,
                            val workflowLogCopyRouter: ActorRef,
                            val jobStoreActor: ActorRef,
                            val callCacheReadActor: ActorRef,
-                           val jobTokenDispenserActor: ActorRef)
+                           val jobTokenDispenserActor: ActorRef,
+                           val backendSingletonCollection: BackendSingletonCollection)
   extends LoggingFSM[WorkflowManagerState, WorkflowManagerData] {
 
   def this(workflowStore: ActorRef,
@@ -91,8 +94,9 @@ class WorkflowManagerActor(config: Config,
            workflowLogCopyRouter: ActorRef,
            jobStoreActor: ActorRef,
            callCacheReadActor: ActorRef,
-           jobTokenDispenserActor: ActorRef) = this(
-    ConfigFactory.load, workflowStore, serviceRegistryActor, workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor)
+           jobTokenDispenserActor: ActorRef,
+           backendSingletonCollection: BackendSingletonCollection) = this(
+    ConfigFactory.load, workflowStore, serviceRegistryActor, workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor, backendSingletonCollection)
 
   private val maxWorkflowsRunning = config.getConfig("system").getIntOr("max-concurrent-workflows", default=DefaultMaxWorkflowsToRun)
   private val maxWorkflowsToLaunch = config.getConfig("system").getIntOr("max-workflow-launch-count", default=DefaultMaxWorkflowsToLaunch)
@@ -112,7 +116,7 @@ class WorkflowManagerActor(config: Config,
   }
 
   private def addShutdownHook() = {
-    // Only abort jobs on SIGINT if the config explicitly sets backend.abortJobsOnTerminate = true.
+    // Only abort jobs on SIGINT if the config explicitly sets system.abortJobsOnTerminate = true.
     val abortJobsOnTerminate =
       config.getConfig("system").getBooleanOr("abort-jobs-on-terminate", default = false)
 
@@ -262,7 +266,7 @@ class WorkflowManagerActor(config: Config,
     }
 
     val wfProps = WorkflowActor.props(workflowId, startMode, workflow.sources, config, serviceRegistryActor,
-      workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor)
+      workflowLogCopyRouter, jobStoreActor, callCacheReadActor, jobTokenDispenserActor, backendSingletonCollection)
     val wfActor = context.actorOf(wfProps, name = s"WorkflowActor-$workflowId")
 
     wfActor ! SubscribeTransitionCallBack(self)
