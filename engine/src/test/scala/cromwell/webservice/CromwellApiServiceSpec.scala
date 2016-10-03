@@ -15,7 +15,7 @@ import cromwell.server.{CromwellServerActor, CromwellSystem}
 import cromwell.services.metadata.MetadataService._
 import cromwell.services.metadata._
 import cromwell.services.metadata.impl.MetadataSummaryRefreshActor.MetadataSummarySuccess
-import cromwell.util.SampleWdl.HelloWorld
+import cromwell.util.SampleWdl.{ThreeStep, HelloWorld}
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.{FlatSpec, Matchers}
 import org.specs2.mock.Mockito
@@ -254,6 +254,38 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
         assertResult(StatusCodes.Created) {
           status
         }
+      }
+  }
+  it should "return 201 for a succesful workflow submission of multiple input files" in {
+    val input1 = Map("hello.hello.addressee" -> "world").toJson.toString
+    val input2 = Map("hello.emoji.cat" -> "(=^・^=)", "hello.emoji.shrug" -> "¯\\_(ツ)_/¯").toJson.toString
+    val overrideInput1 = Map("hello.hello.addressee" -> "universe").toJson.toString
+
+    Post("/workflows/$version", FormData(Seq("wdlSource" -> HelloWorld.wdlSource(), "workflowInputs" -> input1,
+                                            "workflowInputs_2" -> input2, "workflowInputs_3" -> overrideInput1))) ~>
+      submitRoute ~>
+      check {
+        assertResult(
+          s"""{
+              |  "id": "${MockWorkflowStoreActor.submittedWorkflowId.toString}",
+              |  "status": "Submitted"
+              |}""".stripMargin) {
+          responseAs[String]
+        }
+        assertResult(StatusCodes.Created) {
+          status
+        }
+      }
+
+    val wfId = MockWorkflowStoreActor.submittedWorkflowId.toString
+
+    Get(s"/workflows/$version/$wfId/metadata?includeKey=inputs") ~>
+      metadataRoute ~>
+      check {
+        status should be(StatusCodes.OK)
+        val result = responseAs[JsObject]
+        result.fields.keys should contain allOf("hello.hello.addressee", "hello.emoji.cat", "hello.emoji.shrug")
+        result.fields("hello.hello.addressee") should be(JsString("universe"))
       }
   }
 

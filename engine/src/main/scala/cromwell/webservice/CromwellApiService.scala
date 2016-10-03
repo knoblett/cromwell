@@ -1,6 +1,7 @@
 package cromwell.webservice
 
 import akka.actor._
+import com.google.api.client.json.Json
 import cromwell.core.{WorkflowId, WorkflowSourceFiles}
 import cromwell.engine.backend.BackendConfiguration
 import cromwell.services.metadata.MetadataService._
@@ -25,6 +26,19 @@ trait CromwellApiService extends HttpService with PerRequestCreator {
   val workflowManagerActor: ActorRef
   val workflowStoreActor: ActorRef
   val serviceRegistryActor: ActorRef
+
+  def toMap(someInput: Option[String]): Map[String, JsValue] = {
+    import spray.json._
+    someInput match {
+      case Some(inputs: String) => inputs.parseJson match {
+        case JsObject(inputMap) => inputMap
+        case _ =>
+          //throw new RuntimeException(s"Submitted inputs couldn't be processed, please check for syntactical errors.")
+          Map.empty
+      }
+      case None => Map.empty
+    }
+  }
 
   def metadataBuilderProps: Props = MetadataBuilderActor.props(serviceRegistryActor)
 
@@ -111,17 +125,14 @@ trait CromwellApiService extends HttpService with PerRequestCreator {
     path("workflows" / Segment) { version =>
       post {
         formFields("wdlSource", "workflowInputs".?, "workflowInputs_2".?, "workflowInputs_3".?,
-          "workflowInputs_4".?, "workflowInputs_5".? "workflowOptions".?) {
+          "workflowInputs_4".?, "workflowInputs_5".?, "workflowOptions".?) {
           (wdlSource, workflowInputs, workflowInputs_2, workflowInputs_3, workflowInputs_4, workflowInputs_5, workflowOptions) =>
           requestContext =>
-            val workflowInputFiles = List(workflowInputs.getOrElse("{}"), workflowInputs_2.getOrElse("{}"), workflowInputs_3.getOrElse("{}"),
-              workflowInputs_4.getOrElse("{}"), workflowInputs_5.getOrElse("{}"))
-            //NOTE: Need to handle collisions of keys between the various input files
-            import spray.json._
-            val combinedInputs = workflowInputFiles.foreach.parseJson match {
-              case inputs => ++ inputs.getOrElse("{}")
-            }
-            val workflowSourceFiles = WorkflowSourceFiles(wdlSource, workflowInputs.getOrElse("{}"), workflowOptions.getOrElse("{}"))
+            //The order of addition allows for the expected override of colliding keys.
+            val wfInputs =  JsObject(toMap(workflowInputs) ++ toMap(workflowInputs_2) ++ toMap(workflowInputs_3) ++
+                            toMap(workflowInputs_4) ++ toMap(workflowInputs_5)).toString
+
+            val workflowSourceFiles = WorkflowSourceFiles(wdlSource, wfInputs, workflowOptions.getOrElse("{}"))
             perRequest(requestContext, CromwellApiHandler.props(workflowStoreActor), CromwellApiHandler.ApiHandlerWorkflowSubmit(workflowSourceFiles))
         }
       }
@@ -211,6 +222,5 @@ trait CromwellApiService extends HttpService with PerRequestCreator {
     "supportedBackends" -> BackendConfiguration.AllBackendEntries.map(_.name).sorted.toJson,
     "defaultBackend" -> BackendConfiguration.DefaultBackendEntry.name.toJson
   ))
-
 }
 
