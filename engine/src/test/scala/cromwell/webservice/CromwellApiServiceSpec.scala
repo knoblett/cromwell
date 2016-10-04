@@ -15,7 +15,8 @@ import cromwell.server.{CromwellServerActor, CromwellSystem}
 import cromwell.services.metadata.MetadataService._
 import cromwell.services.metadata._
 import cromwell.services.metadata.impl.MetadataSummaryRefreshActor.MetadataSummarySuccess
-import cromwell.util.SampleWdl.{ThreeStep, HelloWorld}
+import cromwell.util.SampleWdl.DeclarationsWorkflow._
+import cromwell.util.SampleWdl.{DeclarationsWorkflow, ThreeStep, HelloWorld}
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.{FlatSpec, Matchers}
 import org.specs2.mock.Mockito
@@ -257,12 +258,13 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
       }
   }
   it should "return 201 for a succesful workflow submission of multiple input files" in {
-    val input1 = Map("hello.hello.addressee" -> "world").toJson.toString
-    val input2 = Map("hello.emoji.cat" -> "(=^・^=)", "hello.emoji.shrug" -> "¯\\_(ツ)_/¯").toJson.toString
-    val overrideInput1 = Map("hello.hello.addressee" -> "universe").toJson.toString
+    val input1 = Map("two_step.cgrep.pattern" -> "first",  "two_step.cgrep.str_decl" -> "foobar").toJson.toString
+    val input2 = Map("two_step.cat.file" -> DeclarationsWorkflow.rawInputs.get("two_step.cat.file")).toJson.toString
+    val input3 = Map("two_step.flags_suffix" -> "s").toJson.toString
+    val overrideInput1 = Map("two_step.cgrep.pattern" -> "second").toJson.toString
 
-    Post("/workflows/$version", FormData(Seq("wdlSource" -> HelloWorld.wdlSource(), "workflowInputs" -> input1,
-                                            "workflowInputs_2" -> input2, "workflowInputs_3" -> overrideInput1))) ~>
+    Post("/workflows/$version", FormData(Seq("wdlSource" -> DeclarationsWorkflow.wdlSource(), "workflowInputs" -> input1,
+                                "workflowInputs_2" -> input2, "workflowInputs_3" -> input3, "workflowInputs_4" -> overrideInput1))) ~>
       submitRoute ~>
       check {
         assertResult(
@@ -284,8 +286,8 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
       check {
         status should be(StatusCodes.OK)
         val result = responseAs[JsObject]
-        result.fields.keys should contain allOf("hello.hello.addressee", "hello.emoji.cat", "hello.emoji.shrug")
-        result.fields("hello.hello.addressee") should be(JsString("universe"))
+        result.fields.keys should contain allOf("two_step.cgrep.pattern", "two_step.flags_suffix", "two_step.cat.file", "two_step.cgrep.str_decl")
+        result.fields("two_step.cgrep.pattern") should be(JsString("second"))
       }
   }
 
