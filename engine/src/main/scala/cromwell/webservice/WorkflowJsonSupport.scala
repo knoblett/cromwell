@@ -2,7 +2,6 @@ package cromwell.webservice
 
 import java.time.OffsetDateTime
 
-import cromwell.core.WorkflowSourceFiles
 import cromwell.engine._
 import cromwell.services.metadata.MetadataService
 import MetadataService.{WorkflowQueryResponse, WorkflowQueryResult}
@@ -18,7 +17,6 @@ object WorkflowJsonSupport extends DefaultJsonProtocol {
   implicit val callOutputResponseProtocol = jsonFormat3(CallOutputResponse)
   implicit val engineStatsProtocol = jsonFormat2(EngineStatsActor.EngineStats)
   implicit val callAttempt = jsonFormat2(CallAttempt)
-  implicit val workflowSourceData = jsonFormat3(WorkflowSourceFiles)
   implicit val errorResponse = jsonFormat3(FailureResponse)
   implicit val successResponse = jsonFormat3(SuccessResponse)
 

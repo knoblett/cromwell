@@ -432,7 +432,7 @@ object SampleWdl {
     override val rawInputs: WorkflowRawInputs = Map(
       "two_step.cgrep.pattern" -> "first",
       "two_step.cgrep.str_decl" -> "foobar",
-      "two_step.cat.file" -> createCannedFile("canned", fileContents),
+      "two_step.cat.file" -> createCannedFile("canned", fileContents).toString,
       "two_step.flags_suffix" -> "s"
     )
   }

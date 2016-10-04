@@ -16,11 +16,11 @@ import cromwell.services.metadata.MetadataService._
 import cromwell.services.metadata._
 import cromwell.services.metadata.impl.MetadataSummaryRefreshActor.MetadataSummarySuccess
 import cromwell.util.SampleWdl.DeclarationsWorkflow._
-import cromwell.util.SampleWdl.{ExpressionsInInputs, DeclarationsWorkflow, ThreeStep, HelloWorld}
+import cromwell.util.SampleWdl.{DeclarationsWorkflow, HelloWorld}
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.{FlatSpec, Matchers}
 import org.specs2.mock.Mockito
-import spray.http.{DateTime => _, _}
+import spray.http._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import spray.testkit.ScalatestRouteTest
@@ -242,7 +242,10 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
 
   behavior of "REST API submission endpoint"
   it should "return 201 for a successful workflow submission " in {
-    Post("/workflows/$version", FormData(Seq("wdlSource" -> HelloWorld.wdlSource(), "workflowInputs" -> HelloWorld.rawInputs.toJson.toString()))) ~>
+    Post("/workflows/$version", MultipartFormData(Seq(
+      BodyPart(HttpEntity(HelloWorld.wdlSource()), "wdlSource"),
+      BodyPart(HttpEntity(HelloWorld.rawInputs.toJson.toString), "workflowInputs")))
+    ) ~>
       submitRoute ~>
       check {
         assertResult(
@@ -257,25 +260,43 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
         }
       }
   }
-  it should "succesfully merge and override multiple input files" in {
 
-    val input1 = Map("wf.a1" -> "hello", "wf.a2" -> "world").toJson.toString
-    val input2 = Map.empty.toJson.toString
-    val overrideInput1 = Map("wf.a2" -> "universe").toJson.toString
-    val allInputs = mergeMaps(Seq(Option(input1), Option(input2), Option(overrideInput1)))
+  it should "return 201 for a successful workflow submission of multiple input files" in {
+    val input1 = Map("two_step.cgrep.pattern" -> "first",  "two_step.cgrep.str_decl" -> "foobar").toJson.toString
+    val input2 = Map("two_step.cat.file" -> DeclarationsWorkflow.rawInputs.get("two_step.cat.file")).toJson.toString
+    val input3 = Map("two_step.flags_suffix" -> "s").toJson.toString
+    val overrideInput1 = Map("two_step.cgrep.pattern" -> "second").toJson.toString
 
-    check {
-      allInputs.fields.keys should contain allOf("wf.a1", "wf.a2")
-      allInputs.fields("wf.a2") should be(JsString("universe"))
-    }
+    Post("/workflows/$version", MultipartFormData(Seq(
+      BodyPart(HttpEntity(DeclarationsWorkflow.wdlSource()), "wdlSource"),
+      BodyPart(HttpEntity(input1), "workflowInputs[]"),
+      BodyPart(HttpEntity(input2), "workflowInputs[]"),
+      BodyPart(HttpEntity(input3), "workflowInputs[]"),
+      BodyPart(HttpEntity(overrideInput1), "workflowInputs[]")))
+    ) ~>
+      submitMultipleInputsRoute ~>
+      check {
+        assertResult(
+          s"""{
+              |  "id": "${MockWorkflowStoreActor.submittedWorkflowId.toString}",
+              |  "status": "Submitted"
+              |}""".stripMargin) {
+          responseAs[String]
+        }
+        assertResult(StatusCodes.Created) {
+          status
+        }
+      }
   }
 
   behavior of "REST API batch submission endpoint"
   it should "return 200 for a successful workflow submission " in {
     val inputs = HelloWorld.rawInputs.toJson
 
-    Post("/workflows/$version/batch",
-      FormData(Seq("wdlSource" -> HelloWorld.wdlSource(), "workflowInputs" -> s"[$inputs, $inputs]"))) ~>
+    Post("/workflows/$version/batch", MultipartFormData(Seq(
+      BodyPart(HttpEntity(HelloWorld.wdlSource()), "wdlSource"),
+      BodyPart(HttpEntity(s"[$inputs, $inputs]"), "workflowInputs")))
+    ) ~>
       submitBatchRoute ~>
       check {
         assertResult(
@@ -294,7 +315,7 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
       }
   }
 
-  // TODO: Test tha batch submission returns expected workflow ids in order
+  // TODO: Test that batch submission returns expected workflow ids in order
   // TODO: Also (assuming we still validate on submit) test a batch of mixed inputs that return submitted and failed
 
   behavior of "REST API /outputs endpoint"
