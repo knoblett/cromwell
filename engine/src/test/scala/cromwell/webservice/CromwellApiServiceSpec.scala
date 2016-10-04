@@ -16,7 +16,7 @@ import cromwell.services.metadata.MetadataService._
 import cromwell.services.metadata._
 import cromwell.services.metadata.impl.MetadataSummaryRefreshActor.MetadataSummarySuccess
 import cromwell.util.SampleWdl.DeclarationsWorkflow._
-import cromwell.util.SampleWdl.{DeclarationsWorkflow, ThreeStep, HelloWorld}
+import cromwell.util.SampleWdl.{ExpressionsInInputs, DeclarationsWorkflow, ThreeStep, HelloWorld}
 import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.{FlatSpec, Matchers}
 import org.specs2.mock.Mockito
@@ -257,38 +257,17 @@ class CromwellApiServiceSpec extends FlatSpec with CromwellApiService with Scala
         }
       }
   }
-  it should "return 201 for a succesful workflow submission of multiple input files" in {
-    val input1 = Map("two_step.cgrep.pattern" -> "first",  "two_step.cgrep.str_decl" -> "foobar").toJson.toString
-    val input2 = Map("two_step.cat.file" -> DeclarationsWorkflow.rawInputs.get("two_step.cat.file")).toJson.toString
-    val input3 = Map("two_step.flags_suffix" -> "s").toJson.toString
-    val overrideInput1 = Map("two_step.cgrep.pattern" -> "second").toJson.toString
+  it should "succesfully merge and override multiple input files" in {
 
-    Post("/workflows/$version", FormData(Seq("wdlSource" -> DeclarationsWorkflow.wdlSource(), "workflowInputs" -> input1,
-                                "workflowInputs_2" -> input2, "workflowInputs_3" -> input3, "workflowInputs_4" -> overrideInput1))) ~>
-      submitRoute ~>
-      check {
-        assertResult(
-          s"""{
-              |  "id": "${MockWorkflowStoreActor.submittedWorkflowId.toString}",
-              |  "status": "Submitted"
-              |}""".stripMargin) {
-          responseAs[String]
-        }
-        assertResult(StatusCodes.Created) {
-          status
-        }
-      }
+    val input1 = Map("wf.a1" -> "hello", "wf.a2" -> "world").toJson.toString
+    val input2 = Map.empty.toJson.toString
+    val overrideInput1 = Map("wf.a2" -> "universe").toJson.toString
+    val allInputs = mergeMaps(Seq(Option(input1), Option(input2), Option(overrideInput1)))
 
-    val wfId = MockWorkflowStoreActor.submittedWorkflowId.toString
-
-    Get(s"/workflows/$version/$wfId/metadata?includeKey=inputs") ~>
-      metadataRoute ~>
-      check {
-        status should be(StatusCodes.OK)
-        val result = responseAs[JsObject]
-        result.fields.keys should contain allOf("two_step.cgrep.pattern", "two_step.flags_suffix", "two_step.cat.file", "two_step.cgrep.str_decl")
-        result.fields("two_step.cgrep.pattern") should be(JsString("second"))
-      }
+    check {
+      allInputs.fields.keys should contain allOf("wf.a1", "wf.a2")
+      allInputs.fields("wf.a2") should be(JsString("universe"))
+    }
   }
 
   behavior of "REST API batch submission endpoint"
