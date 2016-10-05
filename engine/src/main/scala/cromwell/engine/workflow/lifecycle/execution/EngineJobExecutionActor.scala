@@ -162,17 +162,14 @@ class EngineJobExecutionActor(replyTo: ActorRef,
     case Event(response: SucceededResponse, data: ResponsePendingData) => // bad hashes or cache write off
       saveJobCompletionToJobStore(data.withSuccessResponse(response))
     case Event(failure: FailedNonRetryableResponse, data: ResponsePendingData) =>
-      // This matches all response types other than `SucceededResponse`.
       log.error(failure.throwable, "{}: Failed copying cache results, falling back to running job.", jobDescriptorKey)
       runJob(data)
     case Event(failure: FailedRetryableResponse, data: ResponsePendingData) =>
-      // This matches all response types other than `SucceededResponse`.
       log.error(failure.throwable, "{}: Failed copying cache results, falling back to running job.", jobDescriptorKey)
       runJob(data)
     case Event(response: AbortedResponse, data: ResponsePendingData) =>
-      // This matches all response types other than `SucceededResponse`.
       response match {
-        case f: BackendJobFailedResponse =>log.error("{}: Failed copying cache results, falling back to running job: {}", jobDescriptorKey, f.throwable)
+        case f: BackendJobFailedResponse =>log.error(f.throwable, "Failed copying cache results, falling back to running job: {}", jobDescriptorKey)
         case _ => //
       }
       runJob(data)
