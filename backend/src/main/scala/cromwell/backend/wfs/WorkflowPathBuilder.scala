@@ -5,20 +5,13 @@ import cromwell.backend.io.WorkflowPaths
 import cromwell.backend.{BackendConfigurationDescriptor, BackendWorkflowDescriptor}
 import cromwell.core.WorkflowOptions
 import cromwell.core.path.PathBuilder
-import lenthall.config.ScalaConfig._
 
 import scala.concurrent.ExecutionContext
 
 object WorkflowPathBuilder {
   def workflowPaths(configurationDescriptor: BackendConfigurationDescriptor,
                     workflowDescriptor: BackendWorkflowDescriptor,
-                    pathBuilders: List[PathBuilder],
-                    fileSystemExecutionContext: ExecutionContext): WorkflowPaths = {
-    val backendConfig = configurationDescriptor.backendConfig
-    val fileSystemConfig = backendConfig.getConfigOr("filesystems")
-    val globalConfig = configurationDescriptor.globalConfig
-    val params = WorkflowFileSystemProviderParams(fileSystemConfig, globalConfig, workflowDescriptor.workflowOptions,
-      fileSystemExecutionContext)
+                    pathBuilders: List[PathBuilder]): WorkflowPaths = {
     new WorkflowPaths(workflowDescriptor, configurationDescriptor.backendConfig, pathBuilders)
   }
 }

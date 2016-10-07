@@ -4,8 +4,6 @@ import java.nio.file.Path
 
 import better.files._
 
-import scala.language.postfixOps
-
 object PathCopier {
 
   /*
