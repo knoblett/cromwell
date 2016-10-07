@@ -21,7 +21,7 @@ import com.google.cloud.hadoop.gcsio.{GoogleCloudStorageReadChannel, GoogleCloud
 import com.google.cloud.hadoop.util.{ApiErrorExtractor, AsyncWriteChannelOptions, ClientRequestHelper}
 import com.typesafe.config.ConfigFactory
 import lenthall.config.ScalaConfig.EnhancedScalaConfig
-
+import net.ceedubs.ficus.Ficus._
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
@@ -234,7 +234,7 @@ class GcsFileSystemProvider private[gcs](storageClient: Try[Storage], val execut
 
   override def isHidden(path: Path): Boolean = throw new NotImplementedError()
 
-  private[this] lazy val maxResults = config.getIntOr("google.list-max-results", 1000).toLong
+  private[this] lazy val maxResults = config.as[Option[Int]]("google.list-max-results").getOrElse(1000).toLong
 
   private def list(gcsDir: NioGcsPath) = {
     val listRequest = client.objects().list(gcsDir.bucket).setMaxResults(maxResults)
